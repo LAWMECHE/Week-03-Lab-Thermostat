@@ -34,14 +34,14 @@ GFXcanvas16 canvas(240,135);
 enum hvacState {
   Heating, // 0
   Cooling, // 1
-  hCount //2
+  hCount   // 2
 };
 
 enum menuState {
-  TemperatureMenu, //0
-  OperationMenu, //1
-  UnitMenu, //2
-  mCount //3
+  TemperatureMenu, // 0
+  OperationMenu,   // 1
+  UnitMenu,        // 2
+  mCount           // 3
 };
 
 enum tempState {
@@ -52,10 +52,10 @@ enum tempState {
 hvacState opMode = Heating;
 menuState menuMode = TemperatureMenu;
 tempState tempMode = C;
-float targetTemp = 24.;
+float targetTemp = 24.; // Keep the target stored in Celsius.
 volatile long prevChangeTime = 0;
 volatile long prevChangeTimeTwo = 0;
-long debounceTime = 50;
+long debounceTime = 100;
 volatile bool changeButtonFlag = false;
 volatile bool menuButtonFlag = false;
 
@@ -75,18 +75,16 @@ void IRAM_ATTR buttonToChangeMenu() {
   }
 }
 
-
 Adafruit_BME680 bme(&Wire); // I2C
 //Adafruit_BME680 bme(&Wire1); // example of I2C on another bus
 //Adafruit_BME680 bme(BME_CS); // hardware SPI
-//Adafruit_BME680 bme(BME_CS, BME_MOSI, BME_MISO,  BME_SCK);
+//Adafruit_BME680 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK);
 
 float getCurrentTemp() {
-  if (tempMode == tempState::C){
+  if (tempMode == tempState::C) {
     return bme.temperature;
-  }
-  if (tempMode == tempState::F){
-    return bme.temperature*9./5.+32.;
+  } else {
+    return bme.temperature * 9. / 5. + 32.;
   }
 }
 
@@ -108,7 +106,6 @@ void setup() {
   canvas.setTextWrap(true);
 
   Serial.begin(9600);
-
   Serial.println(F("BME680 test"));
 
   if (!bme.begin()) {
@@ -125,11 +122,12 @@ void setup() {
     );
 
     while (true) {
-      display.drawRGBBitmap(0, 0,
-      canvas.getBuffer(),
-      canvas.width(),
-      canvas.height()
-    );
+      display.drawRGBBitmap(
+        0, 0,
+        canvas.getBuffer(),
+        canvas.width(),
+        canvas.height()
+      );
       delay(100);
     }
   }
@@ -147,41 +145,25 @@ void setup() {
   //bme.setPressureOversampling(BME680_OS_4X);
   //bme.setIIRFilterSize(BME680_FILTER_SIZE_3);
   //bme.setGasHeater(320, 150); // 320*C for 150 ms
-
 }
 
 void loop() {
   canvas.fillScreen(ST77XX_BLACK);
   canvas.setCursor(0,20);
-  if (! bme.performReading()) {
-  canvas.println("Failed to perform reading :(");
 
-  display.drawRGBBitmap(
-    0, 0,
-    canvas.getBuffer(),
-    canvas.width(),
-    canvas.height()
-  );
+  if (!bme.performReading()) {
+    canvas.println("Failed to perform reading :(");
 
-  delay(500);
-  return;
-  }
+    display.drawRGBBitmap(
+      0, 0,
+      canvas.getBuffer(),
+      canvas.width(),
+      canvas.height()
+    );
 
-  float currentTemp = getCurrentTemp();
-  canvas.print("Temperature = ");
-  canvas.print(currentTemp);
-  if (tempMode == C) {
-    canvas.print(" *C");
-  } else {
-    canvas.print(" *F");
-  }
-
-  canvas.print(" with target ");
-  canvas.print(targetTemp);
-  canvas.print(" operating in mode ");
-  canvas.print((int)opMode);
-  canvas.print(" in menu ");
-  canvas.println(menuMode);
+    delay(500);
+    return;
+  } // Close the failed-reading block here.
 
   if (menuButtonFlag) {
     menuButtonFlag = false;
@@ -192,12 +174,14 @@ void loop() {
     if (menuMode == TemperatureMenu) {
       targetTemp += 1.0;
       if (targetTemp > 30.0) {
-        targetTemp = targetTemp -10.;
+        targetTemp = targetTemp - 10.;
       }
     }
+
     if (menuMode == OperationMenu) {
       opMode = (hvacState)(((int)opMode + 1) % (int)hvacState::hCount);
     }
+
     if (menuMode == UnitMenu) {
       if (tempMode == C) {
         tempMode = F;
@@ -206,31 +190,98 @@ void loop() {
       }
 
     }
+
     changeButtonFlag = false;
+  }
+
+  // Update the displayed values every loop, after processing the buttons.
+  float currentTemp = getCurrentTemp();
+  float displayedTargetTemp = targetTemp;
+
+  if (tempMode == F) {
+    displayedTargetTemp = targetTemp * 9. / 5. + 32.;
+  }
+  if (menuMode == TemperatureMenu) {
+      canvas.println("Press D1 to increase target by 1 *C");
+      canvas.print("Current: ");
+  canvas.print(currentTemp);
+  if (tempMode == C) {
+    canvas.println(" *C");
+  } else {
+    canvas.println(" *F");
+  }
+    canvas.print("Target: ");
+  canvas.print(displayedTargetTemp);
+  if (tempMode == C) {
+    canvas.println(" *C");
+  } else {
+    canvas.println(" *F");
+  }
+
+
+  canvas.print("Mode: ");
+  if (opMode == Heating) {
+    canvas.println("Heating");
+  } else {
+    canvas.println("Cooling");
+  }
+  }
+
+  if (menuMode == UnitMenu){
+            canvas.println("Press D1 to change the units");
+        if (tempMode == C) {
+          canvas.println("The current units are Celsius (*C)");
+        } else {
+          canvas.println("The current units are Fahrenheit (*F)");
+        }
+              canvas.print("Current: ");
+  canvas.print(currentTemp);
+  if (tempMode == C) {
+    canvas.println(" *C");
+  } else {
+    canvas.println(" *F");
+  }
 
   }
+  if (menuMode == OperationMenu) {
+    canvas.println("Press D1 to change the mode");
+    canvas.print("Mode: ");
+  if (opMode == Heating) {
+    canvas.println("Heating");
+  } else {
+    canvas.println("Cooling");
+  }
+  }
+  canvas.println();
+  canvas.println("Press D2 to scroll through the menus");
+  
+  if (menuMode == TemperatureMenu) {
+    canvas.println("Menu 1: Target temperature");
+  } else if (menuMode == OperationMenu) {
+    canvas.println("Menu 2: Heating/Cooling");
+  } else if (menuMode == UnitMenu) {
+    canvas.println("Menu 3: Celsius/Fahrenheit");
+  }
+
 
   if (opMode == Heating) {
-    if (currentTemp < targetTemp) {
-      canvas.println("Heater is on now!");
+    if (bme.temperature < targetTemp) {
+      canvas.println("Heater is now on!");
     }
-  } else if (opMode == Cooling)
-  {
-    if (currentTemp > targetTemp) {
-      canvas.println("AC is on now!");
+  } else if (opMode == Cooling) {
+    if (bme.temperature > targetTemp) {
+      canvas.println("AC is now on!");
     }
   }
 
-
-/*
+  /*
   Serial.print("Pressure = ");
   Serial.print(bme.pressure / 100.0);
   Serial.println(" hPa");
-*/
+  */
   //Serial.print("Humidity = ");
   //Serial.print(bme.humidity);
   //Serial.println(" %");
-
 
   canvas.println();
   display.drawRGBBitmap(0, 0, canvas.getBuffer(), 240, 135);
